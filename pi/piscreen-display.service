@@ -1,0 +1,14 @@
+[Unit]
+Description=PiStats display server (piscreen panel)
+After=network.target
+
+[Service]
+Type=simple
+User=screen
+WorkingDirectory=/home/screen/pi
+ExecStart=/usr/bin/python3 /home/screen/pi/state_server.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
