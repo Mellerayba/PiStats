@@ -115,8 +115,14 @@ serial sockets these days.
 5. [ ] Real UI/design pass on the display output.
 6. [x] `systemd` service unit so the Pi's app launches automatically on
        boot (no manual SSH-in-and-run needed). `pi/piscreen-display.service`,
-       verified surviving a real `sudo reboot`. (Mac-side `push_client.py`
-       still needs to be run manually / a `launchd` equivalent, if wanted.)
+       verified surviving a real `sudo reboot`. Mac-side equivalent also
+       done: `mac/com.pistats.pushclient.plist.template` (a launchd
+       LaunchAgent). **Gotcha**: a launchd-spawned python3 process got
+       `[Errno 65] No route to host` on every socket connection, even
+       though raw `nc` worked fine — macOS's Local Network privacy
+       permission (System Settings → Privacy & Security → Local Network)
+       blocks headless background processes since they can't show the
+       grant prompt themselves; had to enable it manually once.
 
 ## Open questions / things to decide next
 - Exact GATT characteristic/service design for the BLE link (or whether
