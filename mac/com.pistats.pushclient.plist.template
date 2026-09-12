@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Template for a launchd LaunchAgent that auto-starts push_client.py at
+  login (the Mac-side equivalent of pi/piscreen-display.service).
+
+  This is a TEMPLATE: replace REPO_PATH and PI_HOST_IP below, then save
+  the result as ~/Library/LaunchAgents/com.pistats.pushclient.plist
+  (not committed to git — it embeds a local absolute path and, via
+  PI_HOST, effectively your home network's layout).
+
+  Install:
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.pistats.pushclient.plist
+  Logs:
+    tail -f /tmp/pistats-pushclient.log
+  Stop/remove:
+    launchctl bootout gui/$(id -u)/com.pistats.pushclient
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.pistats.pushclient</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Library/Frameworks/Python.framework/Versions/3.14/bin/python3</string>
+        <string>REPO_PATH/mac/push_client.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>REPO_PATH/mac</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>PI_HOST</key>
+        <string>PI_HOST_IP</string>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/pistats-pushclient.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/pistats-pushclient.log</string>
+</dict>
+</plist>
