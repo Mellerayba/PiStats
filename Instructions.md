@@ -101,14 +101,22 @@ serial sockets these days.
        device. Working approach: render to an off-screen `pygame.Surface`
        (no display driver needed), pack to RGB565, and write raw bytes
        into `/dev/fb1` via `mmap`. See `pi/hello_world.py`.
-2. [ ] Mac-side script: pull battery + now-playing, push over a plain
+2. [x] Mac-side script: pull battery + now-playing, push over a plain
        local socket to the Pi. Confirms the data pipeline end-to-end.
-3. [ ] Pi-side: receive over socket, render to screen.
+       Built as `mac/state_source.py` + `mac/weather.py` + `mac/push_client.py`.
+       Weather location is auto-detected via IP geolocation. Bidirectional:
+       also listens on the same socket for playback commands from the Pi.
+3. [x] Pi-side: receive over socket, render to screen. Built as
+       `pi/state_server.py`. Also added touch controls (previous/play-pause/
+       next) via `pi/touch_input.py`, reading the XPT2046 touchscreen
+       through evdev — see `pi/discover_touch.py` for how it was calibrated.
 4. [ ] Swap plain socket for BLE (Pi as peripheral, Mac as central via
        `bleak`).
 5. [ ] Real UI/design pass on the display output.
-6. [ ] `systemd` service unit so the Pi's app launches automatically on
-       boot (no manual SSH-in-and-run needed).
+6. [x] `systemd` service unit so the Pi's app launches automatically on
+       boot (no manual SSH-in-and-run needed). `pi/piscreen-display.service`,
+       verified surviving a real `sudo reboot`. (Mac-side `push_client.py`
+       still needs to be run manually / a `launchd` equivalent, if wanted.)
 
 ## Open questions / things to decide next
 - Exact GATT characteristic/service design for the BLE link (or whether
