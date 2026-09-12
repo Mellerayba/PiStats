@@ -44,6 +44,8 @@ def main():
         try:
             print(f"Connecting to {PI_HOST}:{PI_PORT}...")
             with socket.create_connection((PI_HOST, PI_PORT), timeout=5) as sock:
+                sock.settimeout(None)  # the 5s connect timeout would otherwise
+                                        # also apply to recv() in reader_loop
                 print("Connected.")
                 threading.Thread(target=reader_loop, args=(sock,), daemon=True).start()
                 while True:
