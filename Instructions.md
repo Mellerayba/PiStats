@@ -110,8 +110,27 @@ serial sockets these days.
        `pi/state_server.py`. Also added touch controls (previous/play-pause/
        next) via `pi/touch_input.py`, reading the XPT2046 touchscreen
        through evdev — see `pi/discover_touch.py` for how it was calibrated.
-4. [ ] Swap plain socket for BLE (Pi as peripheral, Mac as central via
-       `bleak`).
+4. [x] ~~Swap plain socket for BLE~~ — **investigated and abandoned**,
+       keeping the WiFi socket transport. This Pi 3's onboard Bluetooth
+       chip (`BCM43430A1`, Bluetooth 4.1, no LE Extended Advertising
+       hardware support) hit a genuine kernel/BlueZ version-mismatch bug
+       on this OS build (kernel 6.18 + BlueZ 5.82): BlueZ marks the
+       advertising `Flags` field as kernel-managed once it sets the
+       connectable flag in "Add Extended Advertising Parameters", but
+       then still includes an explicit `Flags` AD structure in its own
+       generated advertising data — which the kernel's own validation
+       (`tlv_data_is_valid` in `net/bluetooth/mgmt.c`) rejects for
+       exactly that reason. Confirmed via a live `btmon` trace during a
+       failed `bluetoothctl advertise on`. Not fixable from application
+       code (tried: `bluezero`, raw `dbus-python` advertisement objects,
+       BlueZ's `Experimental` config flag, explicit `SecondaryChannel`
+       properties — all hit the same kernel-side rejection). Raw
+       `btmgmt add-adv` (bypassing BlueZ's D-Bus advertising manager
+       entirely) does work, confirming the hardware/kernel Bluetooth
+       stack itself is fine — the bug is specifically in BlueZ's
+       advertising-data generation for this kernel version. See
+       `pi/ble_hello_peripheral.py`, `pi/ble_adv_test.py`,
+       `mac/ble_hello_central.py` for the investigation trail.
 5. [ ] Real UI/design pass on the display output.
 6. [x] `systemd` service unit so the Pi's app launches automatically on
        boot (no manual SSH-in-and-run needed). `pi/piscreen-display.service`,
