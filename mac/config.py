@@ -6,8 +6,6 @@ import os
 PI_HOST = os.environ.get("PI_HOST", "pi.local")
 PI_PORT = int(os.environ.get("PI_PORT", "8765"))
 
-# Open-Meteo (https://open-meteo.com) needs no API key, just coordinates.
-# REPLACE these with your actual location.
-WEATHER_LAT = 53.3498
-WEATHER_LON = -6.2603
+# Weather location is auto-detected via IP geolocation (see weather.py);
+# this just controls how often it re-fetches from Open-Meteo.
 WEATHER_REFRESH_S = 30 * 60

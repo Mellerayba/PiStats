@@ -4,11 +4,10 @@ pushed state (battery, now-playing + artwork, system stats, weather) as
 newline-delimited JSON, and renders it to the piscreen panel using the
 Pi's own system clock for the time/date display.
 
-Also the endpoint for touch-driven playback commands sent back to the
-Mac over the same connection — the wire protocol and send_command()
-plumbing are ready, but nothing calls send_command() yet: reading the
-XPT2046 touch controller (as a Linux evdev input device) and mapping
-taps to on-screen button regions is the next step, not built here.
+Touch (previous/play-pause/next, via the XPT2046 touchscreen) sends
+playback commands back to the Mac over the same connection.
+
+Requires: sudo apt install -y python3-evdev fonts-symbola
 
 Run on the Pi with:
     python3 state_server.py
@@ -23,6 +22,7 @@ import time
 import pygame
 
 from fb_display import Framebuffer
+from touch_input import start_touch_listener
 
 HOST = "0.0.0.0"
 PORT = 8765
@@ -32,16 +32,45 @@ BLACK = (0, 0, 0)
 GRAY = (120, 120, 120)
 GREEN = (40, 160, 60)
 
+# WMO weather codes (as returned by Open-Meteo) mapped to Unicode symbols.
+# Deliberately using older "Miscellaneous Symbols" glyphs (U+2600 block)
+# rather than modern color emoji — pygame's font rendering on Linux only
+# draws monochrome outlines, and DejaVu Sans (the usual default) covers
+# this block far more reliably than newer emoji code points.
+_WEATHER_SYMBOLS = {
+    0: "☀",  # clear sky
+    1: "☀",  # mainly clear
+    2: "☁",  # partly cloudy
+    3: "☁",  # overcast
+    45: "=",  # fog (no reliable glyph, fall back to a plain mark)
+    48: "=",
+    51: "☔", 53: "☔", 55: "☔",  # drizzle
+    56: "☔", 57: "☔",  # freezing drizzle
+    61: "☔", 63: "☔", 65: "☔",  # rain
+    66: "☔", 67: "☔",  # freezing rain
+    71: "❄", 73: "❄", 75: "❄", 77: "❄",  # snow
+    80: "☔", 81: "☔", 82: "☔",  # rain showers
+    85: "❄", 86: "❄",  # snow showers
+    95: "⚡", 96: "⚡", 99: "⚡",  # thunderstorm
+}
+
 _state_lock = threading.Lock()
 _state = {}
 
 _client_lock = threading.Lock()
 _client_conn = None
 
+# (x, y, w, h, label, command) — command matches mac/state_source.py's
+# _COMMAND_MAP keys.
+_BUTTONS = [
+    (10, 235, 140, 45, "<<", "previous"),
+    (170, 235, 140, 45, "> ||", "toggle"),  # label is overridden dynamically in the render loop
+    (330, 235, 140, 45, ">>", "next"),
+]
+
 
 def send_command(command):
-    """Send a playback command back to the Mac. Not called anywhere yet —
-    wired up once touch input is built."""
+    """Send a playback command back to the Mac (called from _handle_tap)."""
     with _client_lock:
         conn = _client_conn
     if conn is None:
@@ -96,6 +125,10 @@ def _server_loop():
 def _render_loop(fb):
     font_med = pygame.font.SysFont(None, 28)
     font_small = pygame.font.SysFont(None, 22)
+    # pygame's bundled default font and DejaVu Sans both lack these
+    # Unicode symbol glyphs (render as tofu boxes) — Symbola has full
+    # coverage. Install with: sudo apt install -y fonts-symbola
+    font_symbol = pygame.font.SysFont("symbola", 22)
     surface = pygame.Surface((fb.width, fb.height))
     artwork_cache = {"b64": None, "surf": None}
 
@@ -117,7 +150,13 @@ def _render_loop(fb):
         # --- weather ---
         wx = s.get("weather") or {}
         if wx.get("temp_c") is not None:
-            surface.blit(font_small.render(f"{wx['temp_c']}C", True, GRAY), (fb.width - 90, 30))
+            symbol = _WEATHER_SYMBOLS.get(wx.get("weather_code"), "")
+            temp_x = fb.width - 90
+            if symbol:
+                symbol_surf = font_symbol.render(symbol, True, GRAY)
+                surface.blit(symbol_surf, (temp_x, 28))
+                temp_x += symbol_surf.get_width() + 4
+            surface.blit(font_small.render(f"{wx['temp_c']}C", True, GRAY), (temp_x, 30))
 
         # --- now playing ---
         np_ = s.get("now_playing") or {}
@@ -159,6 +198,17 @@ def _render_loop(fb):
             frac = max(0.0, min(1.0, elapsed / duration))
             pygame.draw.rect(surface, GREEN, (10, art_y + 150, int(bar_w * frac), 6))
 
+        # --- playback buttons ---
+        is_playing = bool(np_.get("playing"))
+        for x, y, w, h, label, cmd in _BUTTONS:
+            if cmd == "toggle":
+                label = "||" if is_playing else ">"
+            pygame.draw.rect(surface, GRAY, (x, y, w, h), 2)
+            label_surf = font_med.render(label, True, BLACK)
+            lx = x + (w - label_surf.get_width()) // 2
+            ly = y + (h - label_surf.get_height()) // 2
+            surface.blit(label_surf, (lx, ly))
+
         # --- mac stats ---
         mac_stats = s.get("mac_stats") or {}
         if mac_stats:
@@ -169,11 +219,20 @@ def _render_loop(fb):
         time.sleep(1 / 15)
 
 
+def _handle_tap(x, y):
+    for bx, by, bw, bh, _label, command in _BUTTONS:
+        if bx <= x < bx + bw and by <= y < by + bh:
+            print(f"Tap -> {command}")
+            send_command(command)
+            return
+
+
 def main():
     pygame.init()
     fb = Framebuffer()
     print(f"Framebuffer: {fb.width}x{fb.height}")
     threading.Thread(target=_server_loop, daemon=True).start()
+    start_touch_listener(fb.width, fb.height, _handle_tap)
     _render_loop(fb)
 
 
