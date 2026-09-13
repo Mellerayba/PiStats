@@ -48,13 +48,15 @@ Steps already completed:
    (note: **not** `/boot/config.txt` — the path moved under
    `/boot/firmware/` on Bookworm/Trixie):
    ```
-   dtoverlay=piscreen,speed=16000000,rotate=90
+   dtoverlay=piscreen,speed=16000000,rotate=270
    ```
-3. Rebooted. The screen now renders as a second framebuffer device,
-   `/dev/fb1`, and shows real console output instead of a blank white
-   screen.
-- Rotation (`rotate=90` currently set) can be changed to `0`/`180`/`270`
-  if orientation needs adjusting once a real app is running.
+   (Started at `rotate=90`, flipped 180° to `rotate=270` once the panel
+   was mounted/desk-placed — see roadmap note on touch recalibration
+   needed after any rotation change.)
+3. Rebooted. The screen now renders as a second framebuffer device
+   (which /dev/fbN number it gets depends on boot-time driver order —
+   see `pi/fb_display.py`'s auto-detection), showing real console
+   output instead of a blank white screen.
 
 ## Architecture plan (not yet built)
 

@@ -1,13 +1,22 @@
 """
-Shared framebuffer helper for the piscreen panel (/dev/fb1).
+Shared framebuffer helper for the piscreen panel.
 
 This OS's SDL2 (from apt's python3-pygame) has no "fbdev" driver
 compiled in, and KMSDRM doesn't apply since fbtft-style panels like
 piscreen expose a legacy /dev/fbN device, not a DRM one. So instead of
 pygame.display, we render to an off-screen pygame.Surface and write
-raw RGB565 bytes into /dev/fb1 via mmap. See pi/hello_world.py for the
-original de-risking script this was extracted from.
+raw RGB565 bytes into the framebuffer via mmap. See pi/hello_world.py
+for the original de-risking script this was extracted from.
+
+Which /dev/fbN number the panel gets depends on driver init order at
+boot (e.g. whether an HDMI display/capture card is also connected), so
+it isn't stable across reboots — it showed up as fb1 in earlier testing
+and fb0 once nothing else claimed fb0 first. We auto-detect it instead
+of hardcoding a number, by finding the /sys/class/graphics/fbN whose
+driver name starts with "fb_" (the fbtft naming convention for these
+SPI panel drivers, e.g. "fb_ili9486") rather than "simple" (HDMI).
 """
+import glob
 import mmap
 import os
 
@@ -15,8 +24,25 @@ import numpy as np
 import pygame
 
 
+def _find_panel_fb():
+    for path in sorted(glob.glob("/sys/class/graphics/fb*")):
+        name_file = os.path.join(path, "name")
+        if not os.path.isfile(name_file):
+            continue
+        with open(name_file) as f:
+            name = f.read().strip()
+        if name.startswith("fb_"):
+            return os.path.basename(path)
+    raise RuntimeError(
+        "No fbtft-style framebuffer (name starting 'fb_') found under "
+        "/sys/class/graphics/ — is the piscreen overlay loaded?"
+    )
+
+
 class Framebuffer:
-    def __init__(self, path="/dev/fb1", fb_name="fb1"):
+    def __init__(self, path=None, fb_name=None):
+        fb_name = fb_name or _find_panel_fb()
+        path = path or f"/dev/{fb_name}"
         base = f"/sys/class/graphics/{fb_name}"
         with open(f"{base}/virtual_size") as f:
             self.width, self.height = (int(x) for x in f.read().strip().split(","))
