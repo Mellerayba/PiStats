@@ -48,11 +48,12 @@ Steps already completed:
    (note: **not** `/boot/config.txt` — the path moved under
    `/boot/firmware/` on Bookworm/Trixie):
    ```
-   dtoverlay=piscreen,speed=16000000,rotate=270
+   dtoverlay=piscreen,speed=16000000,rotate=90
    ```
-   (Started at `rotate=90`, flipped 180° to `rotate=270` once the panel
-   was mounted/desk-placed — see roadmap note on touch recalibration
-   needed after any rotation change.)
+   (Briefly flipped 180° to `rotate=270` for a desk-placement test, then
+   back to `rotate=90` — each flip needs a touch recalibration too,
+   since the overlay ties touch axis inversion to this value. See
+   `pi/touch_input.py` and `pi/discover_touch.py`.)
 3. Rebooted. The screen now renders as a second framebuffer device
    (which /dev/fbN number it gets depends on boot-time driver order —
    see `pi/fb_display.py`'s auto-detection), showing real console

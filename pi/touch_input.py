@@ -6,10 +6,10 @@ coordinates once per tap.
 Calibration below comes from tapping all four screen corners: this
 panel's raw ADC range doesn't use the full 0-4095 sweep. Which axis
 reads inverted depends on the display's `rotate=` setting in
-config.txt — the overlay ties touch orientation to it. At rotate=270
-(the current setting, flipped 180° from the original rotate=90), X
-reads direct and Y reads inverted — the opposite of rotate=90's
-X-inverted/Y-direct, as expected for a 180° flip. If taps land in the
+config.txt — the overlay ties touch orientation to it. Back on
+rotate=90 (the original setting): X reads inverted, Y reads direct.
+(At rotate=270 it was the opposite — X direct, Y inverted — see git
+history if switching back to that rotation.) If taps land in the
 wrong spot after changing rotation again, re-run discover_touch.py and
 adjust the RAW_*_MIN/MAX constants and the invert direction below.
 """
@@ -19,13 +19,13 @@ import evdev
 
 DEVICE_PATH = "/dev/input/event0"
 
-RAW_X_MIN, RAW_X_MAX = 380, 3720  # left edge -> right edge (X is direct)
-RAW_Y_MIN, RAW_Y_MAX = 500, 3620  # bottom edge -> top edge (Y is inverted)
+RAW_X_MIN, RAW_X_MAX = 460, 3780  # right edge -> left edge (X is inverted)
+RAW_Y_MIN, RAW_Y_MAX = 320, 3680  # top edge -> bottom edge (Y is direct)
 
 
 def _calibrate(raw_x, raw_y, width, height):
-    x = (raw_x - RAW_X_MIN) / (RAW_X_MAX - RAW_X_MIN) * width
-    y = (RAW_Y_MAX - raw_y) / (RAW_Y_MAX - RAW_Y_MIN) * height
+    x = (RAW_X_MAX - raw_x) / (RAW_X_MAX - RAW_X_MIN) * width
+    y = (raw_y - RAW_Y_MIN) / (RAW_Y_MAX - RAW_Y_MIN) * height
     x = max(0, min(width - 1, x))
     y = max(0, min(height - 1, y))
     return int(x), int(y)

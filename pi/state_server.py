@@ -77,7 +77,16 @@ def _handle_client(conn, addr):
     try:
         with conn:
             while True:
-                chunk = conn.recv(4096)
+                try:
+                    chunk = conn.recv(4096)
+                except OSError:
+                    # e.g. ConnectionResetError when the Mac's end dies
+                    # abruptly (sleep/wake, network drop) instead of
+                    # closing cleanly. Treat it the same as a normal
+                    # disconnect rather than letting it propagate and
+                    # kill _server_loop's whole accept loop, which would
+                    # make the Pi refuse every future connection.
+                    break
                 if not chunk:
                     break
                 buf += chunk
@@ -106,7 +115,14 @@ def _server_loop():
         print(f"Listening on {HOST}:{PORT}")
         while True:
             conn, addr = srv.accept()
-            _handle_client(conn, addr)  # one Mac at a time is fine
+            try:
+                _handle_client(conn, addr)  # one Mac at a time is fine
+            except Exception as e:
+                # Whatever went wrong with this connection, the accept
+                # loop must survive it — this is the only thing standing
+                # between a bad connection and the Pi refusing every
+                # future one until someone notices and restarts it.
+                print(f"_handle_client crashed: {e}")
 
 
 def _draw_header(surface, w, s):
@@ -232,7 +248,7 @@ def _draw_buttons(surface, is_playing, t):
         flash_at = flashes.get(command, 0)
         flashing = (t - flash_at) < FLASH_DURATION
 
-        base = theme.MUSTARD if command == "toggle" else theme.TERRACOTTA
+        base = theme.ORANGE_BRIGHT if command == "toggle" else theme.TERRACOTTA
 
         # chunky raised-button look: a darker shadow layer offset below,
         # the real face on top, flashing bright on tap
@@ -286,13 +302,18 @@ def _draw_footer(surface, w, h, s):
 def _render_loop(fb):
     surface = pygame.Surface((fb.width, fb.height))
     artwork_cache = {"b64": None, "surf": None}
-    start_time = time.time()
 
     while True:
         with _state_lock:
             s = dict(_state)
 
-        t = time.time() - start_time
+        # Absolute epoch time, not elapsed-since-start — _handle_tap
+        # records _button_flash timestamps with time.time() too, and
+        # comparing an elapsed-time t against an absolute one made the
+        # flash-duration check always true after the first tap (t was
+        # tiny, flash_at was ~1.7 billion, so t - flash_at was hugely
+        # negative and always "recent").
+        t = time.time()
 
         surface.fill(theme.CREAM)
         _draw_header(surface, fb.width, s)
